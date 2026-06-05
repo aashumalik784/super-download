@@ -9,15 +9,17 @@ const router = Router();
 router.post("/video/info", async (req, res) => {
   try {
     const { url } = req.body;
-    if (!url) return res.status(400).json({ error: "URL required" });
+    if (!url) {
+      return res.status(400).json({ error: "URL required" });
+    }
 
     const { stdout } = await execAsync(
-      `python -m yt_dlp --dump-json --no-playlist --extractor-args "youtube:player_client=android,web" --user-agent "com.google.android.youtube/17.31.35 (Linux; U; Android 11) gzip" "${url.replace(/"/g, '\\"')}"`,
+      `python -m yt_dlp --dump-json --no-playlist --extractor-args "youtube:player_client=ios" --user-agent "com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5 like Mac OS X)" "${url.replace(/"/g, '\\"')}"`,
       { timeout: 30000 }
     );
 
     const data = JSON.parse(stdout);
-    res.json({
+    return res.json({
       title: data.title,
       thumbnail: data.thumbnail,
       duration: data.duration,
@@ -35,7 +37,7 @@ router.post("/video/info", async (req, res) => {
   } catch (error: any) {
     console.error("YT-DLP Error:", error.message);
     console.error("YT-DLP Stderr:", error.stderr);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: "Failed to fetch video. YouTube blocked the request.",
       details: error.stderr || error.message
     });
@@ -45,7 +47,9 @@ router.post("/video/info", async (req, res) => {
 router.post("/video/download", async (req, res) => {
   try {
     const { url, formatId } = req.body;
-    if (!url) return res.status(400).json({ error: "URL required" });
+    if (!url) {
+      return res.status(400).json({ error: "URL required" });
+    }
 
     const format = formatId || "best";
     
@@ -54,8 +58,8 @@ router.post("/video/download", async (req, res) => {
       "-f", format,
       "-g",
       "--no-playlist",
-      "--extractor-args", "youtube:player_client=android,web",
-      "--user-agent", "com.google.android.youtube/17.31.35 (Linux; U; Android 11) gzip",
+      "--extractor-args", "youtube:player_client=ios",
+      "--user-agent", "com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5 like Mac OS X)",
       url
     ]);
 
@@ -75,7 +79,7 @@ router.post("/video/download", async (req, res) => {
         console.error("YT-DLP Download Error:", errorOutput);
         try {
           const { stdout } = await execAsync(
-            `python -m yt_dlp -f "best" -g --no-playlist --extractor-args "youtube:player_client=android,web" --user-agent "com.google.android.youtube/17.31.35 (Linux; U; Android 11) gzip" "${url.replace(/"/g, '\\"')}"`,
+            `python -m yt_dlp -f "best" -g --no-playlist --extractor-args "youtube:player_client=ios" --user-agent "com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5 like Mac OS X)" "${url.replace(/"/g, '\\"')}"`,
             { timeout: 30000 }
           );
           return res.json({ url: stdout.trim() });
@@ -86,11 +90,11 @@ router.post("/video/download", async (req, res) => {
           });
         }
       }
-      res.json({ url: output.trim() });
+      return res.json({ url: output.trim() });
     });
   } catch (error: any) {
     console.error("Server Error:", error.message);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
