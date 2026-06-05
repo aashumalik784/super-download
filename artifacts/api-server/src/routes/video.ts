@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import { GetVideoInfoBody, DownloadVideoBody } from "@workspace/api-zod";
 
@@ -125,6 +125,17 @@ router.post("/video/info", async (req, res) => {
       });
     }
 
+    // Always add MP3 audio-only option at the end
+    formats.push({
+      formatId: "bestaudio_mp3",
+      label: "Audio Only (MP3)",
+      ext: "mp3",
+      quality: "Audio",
+      filesize: null,
+      hasAudio: true,
+      hasVideo: false,
+    });
+
     res.json({
       title: info.title || "Unknown Title",
       thumbnail: info.thumbnail || "",
@@ -157,6 +168,16 @@ router.post("/video/download", async (req, res) => {
 
   const { url, formatId } = parsed.data;
 
+  // For MP3, redirect to the audio streaming endpoint
+  if (formatId === "bestaudio_mp3") {
+    res.json({
+      downloadUrl: `/api/video/audio?url=${encodeURIComponent(url)}`,
+      filename: "audio.mp3",
+      format: "mp3",
+    });
+    return;
+  }
+
   try {
     const { stdout } = await execAsync(
       `yt-dlp -f "${formatId}" -g --no-playlist "${url.replace(/"/g, '\\"')}"`,
@@ -164,12 +185,10 @@ router.post("/video/download", async (req, res) => {
     );
 
     const downloadUrl = stdout.trim().split("\n")[0];
-    const safeTitle = "video";
-    const ext = "mp4";
 
     res.json({
       downloadUrl,
-      filename: `${safeTitle}.${ext}`,
+      filename: "video.mp4",
       format: formatId,
     });
   } catch {
@@ -189,6 +208,55 @@ router.post("/video/download", async (req, res) => {
       res.status(500).json({ error: "Failed to get download link. The video may be restricted." });
     }
   }
+});
+
+// Stream MP3 audio directly — yt-dlp extracts & converts on the fly
+router.get("/video/audio", (req, res) => {
+  const url = req.query.url as string;
+  if (!url) {
+    res.status(400).json({ error: "Missing url parameter" });
+    return;
+  }
+
+  req.log.info({ url }, "Streaming audio as MP3");
+
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.setHeader("Content-Disposition", `attachment; filename="audio.mp3"`);
+  res.setHeader("Transfer-Encoding", "chunked");
+
+  const ytdlp = spawn("yt-dlp", [
+    "-f", "bestaudio",
+    "-x",
+    "--audio-format", "mp3",
+    "--audio-quality", "0",
+    "--no-playlist",
+    "-o", "-",
+    url,
+  ]);
+
+  ytdlp.stdout.pipe(res);
+
+  ytdlp.stderr.on("data", (data: Buffer) => {
+    req.log.debug({ stderr: data.toString() }, "yt-dlp stderr");
+  });
+
+  ytdlp.on("error", (err) => {
+    req.log.error({ err }, "yt-dlp spawn error");
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to start audio extraction" });
+    }
+  });
+
+  ytdlp.on("close", (code) => {
+    req.log.info({ code }, "yt-dlp audio stream finished");
+    if (code !== 0 && !res.headersSent) {
+      res.status(500).json({ error: "Audio extraction failed" });
+    }
+  });
+
+  req.on("close", () => {
+    ytdlp.kill("SIGTERM");
+  });
 });
 
 export default router;
