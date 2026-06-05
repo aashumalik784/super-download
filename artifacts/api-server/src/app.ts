@@ -1,79 +1,30 @@
-import { Router } from "express";
-import { exec as execCb } from "child_process";
-import { promisify } from "util";
-import { spawn } from "child_process";
+import express from "express";
+import cors from "cors";
+import videoRouter from "./video";
+import healthRouter from "./health";
 
-const execAsync = promisify(execCb);
-const router = Router();
+const app = express();
 
-router.post("/video/info", async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: "URL required" });
+// CORS - Vercel ke liye sabse zaroori
+app.use(cors());
 
-    const { stdout } = await execAsync(
-      `python3 -m yt_dlp --dump-json --no-playlist "${url.replace(/"/g, '\\"')}"`,
-      { timeout: 30000 }
-    );
+// Body parser
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-    const data = JSON.parse(stdout);
-    res.json({
-      title: data.title,
-      thumbnail: data.thumbnail,
-      duration: data.duration,
-      uploader: data.uploader,
-      formats: data.formats?.map((f: any) => ({
-        format_id: f.format_id,
-        ext: f.ext,
-        resolution: f.resolution || `${f.height}p`,
-        filesize: f.filesize,
-        vcodec: f.vcodec,
-        acodec: f.acodec,
-        url: f.url
-      }))
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+// Routes
+app.use("/api", healthRouter);
+app.use("/api", videoRouter);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
 });
 
-router.post("/video/download", async (req, res) => {
-  try {
-    const { url, formatId } = req.body;
-    if (!url) return res.status(400).json({ error: "URL required" });
-
-    const format = formatId || "best";
-    
-    const ytdlp = spawn("python3", [
-      "-m", "yt_dlp",
-      "-f", format,
-      "-g",
-      "--no-playlist",
-      url
-    ]);
-
-    let output = "";
-    ytdlp.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-
-    ytdlp.on("close", async (code) => {
-      if (code !== 0) {
-        try {
-          const { stdout } = await execAsync(
-            `python3 -m yt_dlp -f "best" -g --no-playlist "${url.replace(/"/g, '\\"')}"`,
-            { timeout: 30000 }
-          );
-          return res.json({ url: stdout.trim() });
-        } catch (e: any) {
-          return res.status(500).json({ error: e.message });
-        }
-      }
-      res.json({ url: output.trim() });
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+// Error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
 });
 
-export default router;
+export default app;
