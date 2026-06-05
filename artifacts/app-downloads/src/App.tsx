@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Home from "@/pages/home";
 import History from "@/pages/history";
+import Bulk from "@/pages/bulk";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -15,6 +16,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/history" component={History} />
+        <Route path="/bulk" component={Bulk} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

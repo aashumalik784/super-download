@@ -19,6 +19,9 @@ export function Navbar() {
             <Link href="/" className={`hover:text-foreground transition-colors ${location === "/" ? "text-foreground" : ""}`} data-testid="nav-home">
               Downloader
             </Link>
+            <Link href="/bulk" className={`hover:text-foreground transition-colors ${location === "/bulk" ? "text-foreground" : ""}`} data-testid="nav-bulk">
+              Bulk Download
+            </Link>
             <Link href="/history" className={`hover:text-foreground transition-colors ${location === "/history" ? "text-foreground" : ""}`} data-testid="nav-history">
               History
             </Link>
