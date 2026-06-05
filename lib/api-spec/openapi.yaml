@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: video
+    description: Video download operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /video/info:
+    post:
+      operationId: getVideoInfo
+      tags: [video]
+      summary: Get video info
+      description: Fetches video metadata and available formats from a social media URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VideoInfoInput"
+      responses:
+        "200":
+          description: Video info fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoInfo"
+        "400":
+          description: Invalid URL or unsupported platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /video/download:
+    post:
+      operationId: downloadVideo
+      tags: [video]
+      summary: Get download link
+      description: Returns a direct download URL for a video in a specific format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DownloadInput"
+      responses:
+        "200":
+          description: Download URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +101,97 @@ components:
       required:
         - status
 
+    VideoInfoInput:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: The social media video URL
+
+    VideoFormat:
+      type: object
+      required:
+        - formatId
+        - label
+        - ext
+        - quality
+      properties:
+        formatId:
+          type: string
+        label:
+          type: string
+        ext:
+          type: string
+        quality:
+          type: string
+        filesize:
+          type: ["string", "null"]
+        hasAudio:
+          type: boolean
+        hasVideo:
+          type: boolean
+
+    VideoInfo:
+      type: object
+      required:
+        - title
+        - thumbnail
+        - duration
+        - platform
+        - uploader
+        - formats
+        - url
+      properties:
+        title:
+          type: string
+        thumbnail:
+          type: string
+        duration:
+          type: ["string", "null"]
+        platform:
+          type: string
+        uploader:
+          type: string
+        viewCount:
+          type: ["string", "null"]
+        formats:
+          type: array
+          items:
+            $ref: "#/components/schemas/VideoFormat"
+        url:
+          type: string
+
+    DownloadInput:
+      type: object
+      required:
+        - url
+        - formatId
+      properties:
+        url:
+          type: string
+        formatId:
+          type: string
+
+    DownloadResult:
+      type: object
+      required:
+        - downloadUrl
+        - filename
+        - format
+      properties:
+        downloadUrl:
+          type: string
+        filename:
+          type: string
+        format:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "App Downloads"
+version = "1.0.0"
+id = "artifacts/app-downloads"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19738
+
+[services.development]
+run = "pnpm --filter @workspace/app-downloads run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/app-downloads", "run", "build" ]
+publicDir = "artifacts/app-downloads/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19738"
+BASE_PATH = "/"
